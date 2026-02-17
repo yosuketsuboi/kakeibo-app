@@ -80,25 +80,38 @@ function SignupForm() {
         .single()
 
       if (hhError || !household) {
+        console.error('Household creation error:', hhError)
         setError('世帯の作成に失敗しました')
         setLoading(false)
         return
       }
 
       // Add user as owner
-      await supabase.from('household_members').insert({
+      const { error: memberError } = await supabase.from('household_members').insert({
         household_id: household.id,
         user_id: authData.user.id,
         role: 'owner',
       })
 
+      if (memberError) {
+        console.error('Member insert error:', memberError)
+        setError('世帯メンバーの登録に失敗しました')
+        setLoading(false)
+        return
+      }
+
       // Insert default categories
-      await supabase.from('categories').insert(
+      const { error: catError } = await supabase.from('categories').insert(
         DEFAULT_CATEGORIES.map((cat) => ({
           household_id: household.id,
           ...cat,
         }))
       )
+
+      if (catError) {
+        console.error('Categories insert error:', catError)
+        // カテゴリ失敗は致命的ではないので続行
+      }
     }
 
     router.push('/dashboard')
