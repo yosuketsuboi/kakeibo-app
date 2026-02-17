@@ -276,6 +276,10 @@ export type Database = {
         Args: Record<string, never>
         Returns: string[]
       }
+      create_household_for_user: {
+        Args: { p_household_name: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
