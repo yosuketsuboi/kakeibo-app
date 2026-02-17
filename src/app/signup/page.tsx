@@ -4,7 +4,7 @@ import { useState, Suspense } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { DEFAULT_CATEGORIES } from '@/lib/categories'
+// DEFAULT_CATEGORIES is now handled by the database function
 
 export default function SignupPage() {
   return (
@@ -72,45 +72,16 @@ function SignupForm() {
           .eq('id', invitation.id)
       }
     } else {
-      // Create new household
-      const { data: household, error: hhError } = await supabase
-        .from('households')
-        .insert({ name: householdName || `${email}の家計簿` })
-        .select()
-        .single()
+      // DB関数で世帯・メンバー・カテゴリを一括作成（SECURITY DEFINERでRLSバイパス）
+      const { data, error: rpcError } = await supabase.rpc('create_household_for_user', {
+        p_household_name: householdName || `${email}の家計簿`,
+      })
 
-      if (hhError || !household) {
-        console.error('Household creation error:', hhError)
+      if (rpcError) {
+        console.error('Household creation error:', rpcError)
         setError('世帯の作成に失敗しました')
         setLoading(false)
         return
-      }
-
-      // Add user as owner
-      const { error: memberError } = await supabase.from('household_members').insert({
-        household_id: household.id,
-        user_id: authData.user.id,
-        role: 'owner',
-      })
-
-      if (memberError) {
-        console.error('Member insert error:', memberError)
-        setError('世帯メンバーの登録に失敗しました')
-        setLoading(false)
-        return
-      }
-
-      // Insert default categories
-      const { error: catError } = await supabase.from('categories').insert(
-        DEFAULT_CATEGORIES.map((cat) => ({
-          household_id: household.id,
-          ...cat,
-        }))
-      )
-
-      if (catError) {
-        console.error('Categories insert error:', catError)
-        // カテゴリ失敗は致命的ではないので続行
       }
     }
 
