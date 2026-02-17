@@ -1,0 +1,17 @@
+export const DEFAULT_CATEGORIES = [
+  { name: '食費', color: '#ef4444', sort_order: 1 },
+  { name: '外食', color: '#f59e0b', sort_order: 2 },
+  { name: '日用品', color: '#f97316', sort_order: 3 },
+  { name: '交通費', color: '#84cc16', sort_order: 4 },
+  { name: '光熱費', color: '#eab308', sort_order: 5 },
+  { name: '通信費', color: '#06b6d4', sort_order: 6 },
+  { name: '住居費', color: '#6366f1', sort_order: 7 },
+  { name: '医療費', color: '#ec4899', sort_order: 8 },
+  { name: '衣服', color: '#8b5cf6', sort_order: 9 },
+  { name: '教育費', color: '#14b8a6', sort_order: 10 },
+  { name: '娯楽', color: '#f43f5e', sort_order: 11 },
+  { name: '交際費', color: '#a855f7', sort_order: 12 },
+  { name: '保険', color: '#64748b', sort_order: 13 },
+  { name: '子育て', color: '#fb923c', sort_order: 14 },
+  { name: 'その他', color: '#94a3b8', sort_order: 15 },
+] as const
