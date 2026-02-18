@@ -21,6 +21,7 @@ type Receipt = {
   purchased_at: string | null
   ocr_status: string
   image_path: string
+  ocr_raw: Record<string, unknown> | null
 }
 
 export default function ReceiptDetailPage() {
@@ -168,6 +169,15 @@ export default function ReceiptDetailPage() {
       {isProcessing && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4 text-center">
           <p className="text-yellow-700 text-sm">OCR処理中...</p>
+        </div>
+      )}
+
+      {receipt.ocr_raw?._truncated && (
+        <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-4">
+          <p className="text-orange-700 text-sm font-medium">⚠ OCR結果が不完全です</p>
+          <p className="text-orange-600 text-xs mt-1">
+            明細が多いため一部の商品が読み取れなかった可能性があります。レシート画像を確認し、不足分を手動で追加してください。
+          </p>
         </div>
       )}
 

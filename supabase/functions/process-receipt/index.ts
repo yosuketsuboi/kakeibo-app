@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 2048,
+        max_tokens: 8192,
         messages: [
           {
             role: "user",
@@ -157,13 +157,36 @@ JSONフォーマット:
     const claudeResponse = await response.json();
     const content = claudeResponse.content?.[0]?.text || "";
 
+    // Check if response was truncated
+    const stopReason = claudeResponse.stop_reason;
+    const wasTruncated = stopReason === "max_tokens";
+
     // Parse JSON from response
     let parsed;
+    let wasRepaired = false;
     try {
-      // Extract JSON from potential markdown code block
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      parsed = JSON.parse(jsonMatch ? jsonMatch[0] : content);
-    } catch {
+      // Strip markdown code block wrapper if present
+      let jsonStr = content.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
+
+      // Try parsing as-is first
+      try {
+        parsed = JSON.parse(jsonStr);
+      } catch {
+        // If truncated, try to repair: close open arrays/objects
+        // Remove trailing incomplete item (after last comma in items array)
+        const lastCompleteItem = jsonStr.lastIndexOf("},");
+        if (lastCompleteItem !== -1) {
+          jsonStr = jsonStr.substring(0, lastCompleteItem + 1);
+          // Close the items array and root object
+          jsonStr += "]}";
+          parsed = JSON.parse(jsonStr);
+          wasRepaired = true;
+          console.log("Repaired truncated JSON successfully");
+        } else {
+          throw new Error("Cannot repair JSON");
+        }
+      }
+    } catch (e) {
       console.error("Failed to parse OCR response:", content);
       await supabase
         .from("receipts")
@@ -173,6 +196,11 @@ JSONフォーマット:
         JSON.stringify({ error: "Failed to parse OCR response" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // Flag truncation in parsed data
+    if (wasTruncated || wasRepaired) {
+      parsed._truncated = true;
     }
 
     // Update receipt
