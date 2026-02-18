@@ -320,7 +320,8 @@ export default function ReceiptDetailPage() {
                   </div>
                   <div className="flex-1">
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
                       value={item.unit_price}
                       onChange={(e) => updateItem(index, 'unit_price', e.target.value)}
                       className="w-full px-2 py-1 border rounded text-sm"
