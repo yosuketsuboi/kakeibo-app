@@ -62,9 +62,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Convert to base64
+    // Convert to base64 (chunked to avoid stack overflow)
     const arrayBuffer = await imageData.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = "";
+    const chunkSize = 8192;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = bytes.subarray(i, i + chunkSize);
+      binary += String.fromCharCode(...chunk);
+    }
+    const base64 = btoa(binary);
     const mediaType = imageData.type || "image/jpeg";
 
     // Get categories for this household

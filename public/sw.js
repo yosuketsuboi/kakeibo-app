@@ -23,8 +23,13 @@ self.addEventListener('activate', (event) => {
 })
 
 self.addEventListener('fetch', (event) => {
+  // Only handle GET requests - POST/PUT/DELETE cannot be cached
+  if (event.request.method !== 'GET') {
+    return
+  }
+
   // Network first strategy for API calls
-  if (event.request.url.includes('/rest/') || event.request.url.includes('/auth/')) {
+  if (event.request.url.includes('/rest/') || event.request.url.includes('/auth/') || event.request.url.includes('/functions/')) {
     event.respondWith(
       fetch(event.request).catch(() => caches.match(event.request))
     )
