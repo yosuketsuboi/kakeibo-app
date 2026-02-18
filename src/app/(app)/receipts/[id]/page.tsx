@@ -157,6 +157,11 @@ export default function ReceiptDetailPage() {
 
   const isProcessing = receipt.ocr_status === 'pending' || receipt.ocr_status === 'processing'
 
+  const itemsTotal = items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0)
+  const total = Number(totalAmount) || 0
+  const hasMismatch = !isProcessing && items.length > 0 && total > 0 && itemsTotal !== total
+  const mismatchDiff = itemsTotal - total
+
   return (
     <div className="max-w-lg mx-auto px-4 pt-6 pb-8">
       <div className="flex items-center justify-between mb-4">
@@ -182,6 +187,15 @@ export default function ReceiptDetailPage() {
           <p className="text-orange-700 text-sm font-medium">⚠ OCR結果が不完全です</p>
           <p className="text-orange-600 text-xs mt-1">
             明細が多いため一部の商品が読み取れなかった可能性があります。レシート画像を確認し、不足分を手動で追加してください。
+          </p>
+        </div>
+      )}
+
+      {hasMismatch && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4">
+          <p className="text-yellow-700 text-sm font-medium">⚠ 合計金額と明細の合計が一致しません</p>
+          <p className="text-yellow-600 text-xs mt-1">
+            合計金額: {formatCurrency(total)} / 明細合計: {formatCurrency(itemsTotal)}（差額: {mismatchDiff > 0 ? '+' : ''}{formatCurrency(mismatchDiff)}）
           </p>
         </div>
       )}

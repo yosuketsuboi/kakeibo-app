@@ -195,6 +195,102 @@ describe('ReceiptDetailPage', () => {
     expect(screen.getByDisplayValue('食パン')).toBeInTheDocument()
   })
 
+  it('shows mismatch warning when total and items sum differ', async () => {
+    setupSupabaseMock({
+      id: 'receipt-1',
+      store_name: 'テストスーパー',
+      total_amount: 1000,
+      purchased_at: '2026-01-15',
+      ocr_status: 'done',
+      image_path: 'household-1/test.jpg',
+      ocr_raw: null,
+    }, [
+      { id: 'item-1', name: '牛乳', quantity: 1, unit_price: 200, category_id: 'cat-1' },
+      { id: 'item-2', name: '食パン', quantity: 2, unit_price: 150, category_id: 'cat-1' },
+    ])
+
+    render(<ReceiptDetailPage />)
+
+    // items total = 200 + 300 = 500, receipt total = 1000
+    expect(await screen.findByText('⚠ 合計金額と明細の合計が一致しません')).toBeInTheDocument()
+    expect(screen.getByText(/差額/)).toBeInTheDocument()
+  })
+
+  it('does not show mismatch warning when total and items sum match', async () => {
+    setupSupabaseMock({
+      id: 'receipt-1',
+      store_name: 'テストスーパー',
+      total_amount: 500,
+      purchased_at: '2026-01-15',
+      ocr_status: 'done',
+      image_path: 'household-1/test.jpg',
+      ocr_raw: null,
+    }, [
+      { id: 'item-1', name: '牛乳', quantity: 1, unit_price: 200, category_id: 'cat-1' },
+      { id: 'item-2', name: '食パン', quantity: 2, unit_price: 150, category_id: 'cat-1' },
+    ])
+
+    render(<ReceiptDetailPage />)
+
+    await screen.findByDisplayValue('テストスーパー')
+    expect(screen.queryByText('⚠ 合計金額と明細の合計が一致しません')).not.toBeInTheDocument()
+  })
+
+  it('does not show mismatch warning when no items exist', async () => {
+    setupSupabaseMock({
+      id: 'receipt-1',
+      store_name: 'テストスーパー',
+      total_amount: 1000,
+      purchased_at: '2026-01-15',
+      ocr_status: 'done',
+      image_path: 'household-1/test.jpg',
+      ocr_raw: null,
+    }, [])
+
+    render(<ReceiptDetailPage />)
+
+    await screen.findByDisplayValue('テストスーパー')
+    expect(screen.queryByText('⚠ 合計金額と明細の合計が一致しません')).not.toBeInTheDocument()
+  })
+
+  it('does not show mismatch warning when total is 0 or empty', async () => {
+    setupSupabaseMock({
+      id: 'receipt-1',
+      store_name: 'テストスーパー',
+      total_amount: null,
+      purchased_at: '2026-01-15',
+      ocr_status: 'done',
+      image_path: 'household-1/test.jpg',
+      ocr_raw: null,
+    }, [
+      { id: 'item-1', name: '牛乳', quantity: 1, unit_price: 200, category_id: 'cat-1' },
+    ])
+
+    render(<ReceiptDetailPage />)
+
+    await screen.findByDisplayValue('テストスーパー')
+    expect(screen.queryByText('⚠ 合計金額と明細の合計が一致しません')).not.toBeInTheDocument()
+  })
+
+  it('does not show mismatch warning during processing', async () => {
+    setupSupabaseMock({
+      id: 'receipt-1',
+      store_name: 'テストスーパー',
+      total_amount: 1000,
+      purchased_at: '2026-01-15',
+      ocr_status: 'processing',
+      image_path: 'household-1/test.jpg',
+      ocr_raw: null,
+    }, [
+      { id: 'item-1', name: '牛乳', quantity: 1, unit_price: 200, category_id: 'cat-1' },
+    ])
+
+    render(<ReceiptDetailPage />)
+
+    await screen.findByText('OCR処理中...')
+    expect(screen.queryByText('⚠ 合計金額と明細の合計が一致しません')).not.toBeInTheDocument()
+  })
+
   it('shows both processing and truncation warnings when applicable', async () => {
     // Edge case: status is done but truncated
     setupSupabaseMock({
