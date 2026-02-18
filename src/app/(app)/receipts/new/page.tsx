@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useHousehold } from '@/lib/hooks/useHousehold'
 import { useRouter } from 'next/navigation'
@@ -8,24 +8,25 @@ import imageCompression from 'browser-image-compression'
 
 export default function NewReceiptPage() {
   const { household } = useHousehold()
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [status, setStatus] = useState('')
-  const fileRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Preview
+    setSelectedFile(file)
+
     const reader = new FileReader()
-    reader.onload = (e) => setPreview(e.target?.result as string)
+    reader.onload = (ev) => setPreview(ev.target?.result as string)
     reader.readAsDataURL(file)
   }
 
   async function handleUpload() {
-    if (!fileRef.current?.files?.[0] || !household) return
+    if (!selectedFile || !household) return
 
     setUploading(true)
     setStatus('画像を圧縮中...')
@@ -36,8 +37,7 @@ export default function NewReceiptPage() {
       if (!user) throw new Error('認証エラー')
 
       // Compress image
-      const file = fileRef.current.files[0]
-      const compressed = await imageCompression(file, {
+      const compressed = await imageCompression(selectedFile, {
         maxSizeMB: 0.8,
         maxWidthOrHeight: 1920,
         useWebWorker: true,
@@ -106,7 +106,6 @@ export default function NewReceiptPage() {
               <p className="text-xs text-gray-400">またはギャラリーから選択</p>
             </div>
             <input
-              ref={fileRef}
               type="file"
               accept="image/*"
               capture="environment"
@@ -127,7 +126,7 @@ export default function NewReceiptPage() {
             <button
               onClick={() => {
                 setPreview(null)
-                if (fileRef.current) fileRef.current.value = ''
+                setSelectedFile(null)
               }}
               className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-2"
             >
