@@ -21,7 +21,7 @@ type Receipt = {
   purchased_at: string | null
   ocr_status: string
   image_path: string
-  ocr_raw: Record<string, unknown> | null
+  ocr_raw: string | null
 }
 
 export default function ReceiptDetailPage() {
@@ -172,7 +172,12 @@ export default function ReceiptDetailPage() {
         </div>
       )}
 
-      {receipt.ocr_raw?._truncated && (
+      {(() => {
+        try {
+          const raw = typeof receipt.ocr_raw === 'string' ? JSON.parse(receipt.ocr_raw) : receipt.ocr_raw
+          return raw?._truncated
+        } catch { return false }
+      })() && (
         <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-4">
           <p className="text-orange-700 text-sm font-medium">⚠ OCR結果が不完全です</p>
           <p className="text-orange-600 text-xs mt-1">

@@ -108,7 +108,7 @@ describe('ReceiptDetailPage', () => {
       purchased_at: '2026-01-15',
       ocr_status: 'done',
       image_path: 'household-1/test.jpg',
-      ocr_raw: { _truncated: true, store_name: 'テストスーパー', items: [] },
+      ocr_raw: JSON.stringify({ _truncated: true, store_name: 'テストスーパー', items: [] }),
     }, [
       { id: 'item-1', name: '牛乳', quantity: 1, unit_price: 200, category_id: 'cat-1' },
     ])
@@ -127,7 +127,7 @@ describe('ReceiptDetailPage', () => {
       purchased_at: '2026-01-15',
       ocr_status: 'done',
       image_path: 'household-1/test.jpg',
-      ocr_raw: { store_name: 'テストスーパー', items: [] },
+      ocr_raw: JSON.stringify({ store_name: 'テストスーパー', items: [] }),
     }, [
       { id: 'item-1', name: '牛乳', quantity: 1, unit_price: 200, category_id: 'cat-1' },
     ])
@@ -180,7 +180,7 @@ describe('ReceiptDetailPage', () => {
       purchased_at: '2026-01-15',
       ocr_status: 'done',
       image_path: 'household-1/test.jpg',
-      ocr_raw: { store_name: 'テストスーパー', items: [] },
+      ocr_raw: JSON.stringify({ store_name: 'テストスーパー', items: [] }),
     }, [
       { id: 'item-1', name: '牛乳', quantity: 1, unit_price: 200, category_id: 'cat-1' },
       { id: 'item-2', name: '食パン', quantity: 2, unit_price: 150, category_id: 'cat-1' },
@@ -204,7 +204,7 @@ describe('ReceiptDetailPage', () => {
       purchased_at: '2026-01-15',
       ocr_status: 'done',
       image_path: 'household-1/test.jpg',
-      ocr_raw: { _truncated: true, store_name: 'テストスーパー', items: [] },
+      ocr_raw: JSON.stringify({ _truncated: true, store_name: 'テストスーパー', items: [] }),
     })
 
     render(<ReceiptDetailPage />)
