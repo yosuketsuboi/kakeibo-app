@@ -244,6 +244,38 @@ export default function ReceiptDetailPage() {
         </div>
       </div>
 
+      {/* Category subtotals */}
+      {!isProcessing && items.length > 0 && (() => {
+        const subtotals = new Map<string | null, number>()
+        for (const item of items) {
+          const key = item.category_id || null
+          subtotals.set(key, (subtotals.get(key) || 0) + item.quantity * item.unit_price)
+        }
+        const entries = Array.from(subtotals.entries()).sort((a, b) => b[1] - a[1])
+        return (
+          <div className="mb-6">
+            <h2 className="font-semibold mb-2">カテゴリ別小計</h2>
+            <div className="bg-gray-50 rounded-xl p-3 space-y-2">
+              {entries.map(([catId, amount]) => {
+                const cat = categories.find((c) => c.id === catId)
+                return (
+                  <div key={catId ?? '_uncategorized'} className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="inline-block w-3 h-3 rounded-full"
+                        style={{ backgroundColor: cat?.color || '#94a3b8' }}
+                      />
+                      <span>{cat?.name || '未分類'}</span>
+                    </div>
+                    <span className="font-medium">{formatCurrency(amount)}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
+
       {/* Items */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">

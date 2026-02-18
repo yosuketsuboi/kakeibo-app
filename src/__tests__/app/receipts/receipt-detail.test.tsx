@@ -291,6 +291,115 @@ describe('ReceiptDetailPage', () => {
     expect(screen.queryByText('⚠ 合計金額と明細の合計が一致しません')).not.toBeInTheDocument()
   })
 
+  it('shows category subtotals grouped by category', async () => {
+    setupSupabaseMock({
+      id: 'receipt-1',
+      store_name: 'テストスーパー',
+      total_amount: 1000,
+      purchased_at: '2026-01-15',
+      ocr_status: 'done',
+      image_path: 'household-1/test.jpg',
+      ocr_raw: null,
+    }, [
+      { id: 'item-1', name: '牛乳', quantity: 1, unit_price: 200, category_id: 'cat-1' },
+      { id: 'item-2', name: '食パン', quantity: 2, unit_price: 150, category_id: 'cat-1' },
+      { id: 'item-3', name: '洗剤', quantity: 1, unit_price: 300, category_id: 'cat-2' },
+    ])
+
+    render(<ReceiptDetailPage />)
+
+    const heading = await screen.findByText('カテゴリ別小計')
+    const section = heading.parentElement!
+    // 食費: 200 + 300 = 500, 日用品: 300
+    expect(section).toHaveTextContent('食費')
+    expect(section).toHaveTextContent('¥500')
+    expect(section).toHaveTextContent('日用品')
+    expect(section).toHaveTextContent('¥300')
+  })
+
+  it('shows uncategorized subtotal for items without category', async () => {
+    setupSupabaseMock({
+      id: 'receipt-1',
+      store_name: 'テストスーパー',
+      total_amount: 500,
+      purchased_at: '2026-01-15',
+      ocr_status: 'done',
+      image_path: 'household-1/test.jpg',
+      ocr_raw: null,
+    }, [
+      { id: 'item-1', name: '牛乳', quantity: 1, unit_price: 200, category_id: 'cat-1' },
+      { id: 'item-2', name: '不明な品', quantity: 1, unit_price: 300, category_id: null },
+    ])
+
+    render(<ReceiptDetailPage />)
+
+    const heading = await screen.findByText('カテゴリ別小計')
+    const section = heading.parentElement!
+    expect(section).toHaveTextContent('未分類')
+    expect(section).toHaveTextContent('¥300')
+  })
+
+  it('does not show category subtotals when no items', async () => {
+    setupSupabaseMock({
+      id: 'receipt-1',
+      store_name: 'テストスーパー',
+      total_amount: 1000,
+      purchased_at: '2026-01-15',
+      ocr_status: 'done',
+      image_path: 'household-1/test.jpg',
+      ocr_raw: null,
+    }, [])
+
+    render(<ReceiptDetailPage />)
+
+    await screen.findByDisplayValue('テストスーパー')
+    expect(screen.queryByText('カテゴリ別小計')).not.toBeInTheDocument()
+  })
+
+  it('does not show category subtotals during processing', async () => {
+    setupSupabaseMock({
+      id: 'receipt-1',
+      store_name: null,
+      total_amount: null,
+      purchased_at: null,
+      ocr_status: 'processing',
+      image_path: 'household-1/test.jpg',
+      ocr_raw: null,
+    }, [
+      { id: 'item-1', name: '牛乳', quantity: 1, unit_price: 200, category_id: 'cat-1' },
+    ])
+
+    render(<ReceiptDetailPage />)
+
+    await screen.findByText('OCR処理中...')
+    expect(screen.queryByText('カテゴリ別小計')).not.toBeInTheDocument()
+  })
+
+  it('sorts category subtotals by amount descending', async () => {
+    setupSupabaseMock({
+      id: 'receipt-1',
+      store_name: 'テストスーパー',
+      total_amount: 1000,
+      purchased_at: '2026-01-15',
+      ocr_status: 'done',
+      image_path: 'household-1/test.jpg',
+      ocr_raw: null,
+    }, [
+      { id: 'item-1', name: '洗剤', quantity: 1, unit_price: 800, category_id: 'cat-2' },
+      { id: 'item-2', name: '牛乳', quantity: 1, unit_price: 200, category_id: 'cat-1' },
+    ])
+
+    render(<ReceiptDetailPage />)
+
+    await screen.findByText('カテゴリ別小計')
+    const subtotalSection = screen.getByText('カテゴリ別小計').parentElement!
+    const categoryNames = Array.from(subtotalSection.querySelectorAll('.flex.items-center.justify-between'))
+      .map((el) => el.querySelector('.flex.items-center.gap-2 span:last-child')?.textContent)
+
+    // 日用品(800) should come before 食費(200)
+    expect(categoryNames).toEqual(['日用品', '食費'])
+  })
+
   it('shows both processing and truncation warnings when applicable', async () => {
     // Edge case: status is done but truncated
     setupSupabaseMock({
