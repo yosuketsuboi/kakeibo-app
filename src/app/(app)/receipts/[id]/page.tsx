@@ -34,6 +34,7 @@ export default function ReceiptDetailPage() {
   const [purchasedAt, setPurchasedAt] = useState('')
   const [saving, setSaving] = useState(false)
   const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [filterCategoryId, setFilterCategoryId] = useState<string | null | undefined>(undefined)
   const router = useRouter()
 
   useEffect(() => {
@@ -254,12 +255,30 @@ export default function ReceiptDetailPage() {
         const entries = Array.from(subtotals.entries()).sort((a, b) => b[1] - a[1])
         return (
           <div className="mb-6">
-            <h2 className="font-semibold mb-2">カテゴリ別小計</h2>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="font-semibold">カテゴリ別小計</h2>
+              {filterCategoryId !== undefined && (
+                <button
+                  onClick={() => setFilterCategoryId(undefined)}
+                  className="text-blue-600 text-sm font-medium"
+                >
+                  フィルタ解除
+                </button>
+              )}
+            </div>
             <div className="bg-gray-50 rounded-xl p-3 space-y-2">
               {entries.map(([catId, amount]) => {
                 const cat = categories.find((c) => c.id === catId)
+                const isActive = filterCategoryId !== undefined && filterCategoryId === (catId ?? null)
                 return (
-                  <div key={catId ?? '_uncategorized'} className="flex items-center justify-between text-sm">
+                  <button
+                    key={catId ?? '_uncategorized'}
+                    onClick={() => {
+                      const key = catId ?? null
+                      setFilterCategoryId(filterCategoryId === key ? undefined : key)
+                    }}
+                    className={`flex items-center justify-between text-sm w-full rounded-lg px-2 py-1 transition-colors ${isActive ? 'bg-blue-100' : 'hover:bg-gray-100'}`}
+                  >
                     <div className="flex items-center gap-2">
                       <span
                         className="inline-block w-3 h-3 rounded-full"
@@ -268,7 +287,7 @@ export default function ReceiptDetailPage() {
                       <span>{cat?.name || '未分類'}</span>
                     </div>
                     <span className="font-medium">{formatCurrency(amount)}</span>
-                  </div>
+                  </button>
                 )
               })}
             </div>
@@ -291,7 +310,11 @@ export default function ReceiptDetailPage() {
           </p>
         ) : (
           <div className="space-y-3">
-            {items.map((item, index) => (
+            {items.map((item, index) => {
+              if (filterCategoryId !== undefined && (item.category_id || null) !== filterCategoryId) {
+                return null
+              }
+              return (
               <div key={item.id} className="bg-gray-50 rounded-xl p-3 space-y-2">
                 <div className="flex gap-2">
                   <input
@@ -345,7 +368,8 @@ export default function ReceiptDetailPage() {
                   小計: {formatCurrency(item.quantity * item.unit_price)}
                 </div>
               </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

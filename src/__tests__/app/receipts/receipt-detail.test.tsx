@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
 const mockPush = vi.fn()
 const mockParams = { id: 'receipt-1' }
@@ -309,7 +310,7 @@ describe('ReceiptDetailPage', () => {
     render(<ReceiptDetailPage />)
 
     const heading = await screen.findByText('カテゴリ別小計')
-    const section = heading.parentElement!
+    const section = heading.closest('div.mb-6')!
     // 食費: 200 + 300 = 500, 日用品: 300
     expect(section).toHaveTextContent('食費')
     expect(section).toHaveTextContent('¥500')
@@ -334,7 +335,7 @@ describe('ReceiptDetailPage', () => {
     render(<ReceiptDetailPage />)
 
     const heading = await screen.findByText('カテゴリ別小計')
-    const section = heading.parentElement!
+    const section = heading.closest('div.mb-6')!
     expect(section).toHaveTextContent('未分類')
     expect(section).toHaveTextContent('¥300')
   })
@@ -392,12 +393,123 @@ describe('ReceiptDetailPage', () => {
     render(<ReceiptDetailPage />)
 
     await screen.findByText('カテゴリ別小計')
-    const subtotalSection = screen.getByText('カテゴリ別小計').parentElement!
-    const categoryNames = Array.from(subtotalSection.querySelectorAll('.flex.items-center.justify-between'))
+    const subtotalSection = screen.getByText('カテゴリ別小計').closest('div.mb-6')!
+    const buttons = subtotalSection.querySelectorAll('button.flex')
+    const categoryNames = Array.from(buttons)
       .map((el) => el.querySelector('.flex.items-center.gap-2 span:last-child')?.textContent)
 
     // 日用品(800) should come before 食費(200)
     expect(categoryNames).toEqual(['日用品', '食費'])
+  })
+
+  it('filters items when category subtotal is clicked', async () => {
+    const user = userEvent.setup()
+    setupSupabaseMock({
+      id: 'receipt-1',
+      store_name: 'テストスーパー',
+      total_amount: 800,
+      purchased_at: '2026-01-15',
+      ocr_status: 'done',
+      image_path: 'household-1/test.jpg',
+      ocr_raw: null,
+    }, [
+      { id: 'item-1', name: '牛乳', quantity: 1, unit_price: 200, category_id: 'cat-1' },
+      { id: 'item-2', name: '食パン', quantity: 2, unit_price: 150, category_id: 'cat-1' },
+      { id: 'item-3', name: '洗剤', quantity: 1, unit_price: 300, category_id: 'cat-2' },
+    ])
+
+    render(<ReceiptDetailPage />)
+
+    // Wait for load, all items visible
+    await screen.findByDisplayValue('牛乳')
+    expect(screen.getByDisplayValue('食パン')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('洗剤')).toBeInTheDocument()
+
+    // Click 日用品 subtotal to filter
+    const heading = screen.getByText('カテゴリ別小計')
+    const section = heading.closest('div.mb-6')!
+    const nichiyouhinBtn = within(section as HTMLElement).getByText('日用品').closest('button')!
+    await user.click(nichiyouhinBtn)
+
+    // Only 洗剤 should be visible
+    expect(screen.getByDisplayValue('洗剤')).toBeInTheDocument()
+    expect(screen.queryByDisplayValue('牛乳')).not.toBeInTheDocument()
+    expect(screen.queryByDisplayValue('食パン')).not.toBeInTheDocument()
+  })
+
+  it('shows clear filter button when filtering and clears on click', async () => {
+    const user = userEvent.setup()
+    setupSupabaseMock({
+      id: 'receipt-1',
+      store_name: 'テストスーパー',
+      total_amount: 500,
+      purchased_at: '2026-01-15',
+      ocr_status: 'done',
+      image_path: 'household-1/test.jpg',
+      ocr_raw: null,
+    }, [
+      { id: 'item-1', name: '牛乳', quantity: 1, unit_price: 200, category_id: 'cat-1' },
+      { id: 'item-2', name: '洗剤', quantity: 1, unit_price: 300, category_id: 'cat-2' },
+    ])
+
+    render(<ReceiptDetailPage />)
+
+    await screen.findByDisplayValue('牛乳')
+
+    // No clear button initially
+    expect(screen.queryByText('フィルタ解除')).not.toBeInTheDocument()
+
+    // Click 食費 subtotal
+    const heading = screen.getByText('カテゴリ別小計')
+    const section = heading.closest('div.mb-6')!
+    const shokuhi = within(section as HTMLElement).getByText('食費').closest('button')!
+    await user.click(shokuhi)
+
+    // Clear button appears
+    expect(screen.getByText('フィルタ解除')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('牛乳')).toBeInTheDocument()
+    expect(screen.queryByDisplayValue('洗剤')).not.toBeInTheDocument()
+
+    // Click clear
+    await user.click(screen.getByText('フィルタ解除'))
+
+    // All items visible again
+    expect(screen.getByDisplayValue('牛乳')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('洗剤')).toBeInTheDocument()
+    expect(screen.queryByText('フィルタ解除')).not.toBeInTheDocument()
+  })
+
+  it('toggles filter off when same category is clicked again', async () => {
+    const user = userEvent.setup()
+    setupSupabaseMock({
+      id: 'receipt-1',
+      store_name: 'テストスーパー',
+      total_amount: 500,
+      purchased_at: '2026-01-15',
+      ocr_status: 'done',
+      image_path: 'household-1/test.jpg',
+      ocr_raw: null,
+    }, [
+      { id: 'item-1', name: '牛乳', quantity: 1, unit_price: 200, category_id: 'cat-1' },
+      { id: 'item-2', name: '洗剤', quantity: 1, unit_price: 300, category_id: 'cat-2' },
+    ])
+
+    render(<ReceiptDetailPage />)
+
+    await screen.findByDisplayValue('牛乳')
+
+    const heading = screen.getByText('カテゴリ別小計')
+    const section = heading.closest('div.mb-6')!
+    const shokuhi = within(section as HTMLElement).getByText('食費').closest('button')!
+
+    // Click to filter
+    await user.click(shokuhi)
+    expect(screen.queryByDisplayValue('洗剤')).not.toBeInTheDocument()
+
+    // Click same category again to unfilter
+    await user.click(shokuhi)
+    expect(screen.getByDisplayValue('牛乳')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('洗剤')).toBeInTheDocument()
   })
 
   it('shows both processing and truncation warnings when applicable', async () => {
