@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kakeibo-v3'
+const CACHE_NAME = 'kakeibo-v4'
 const STATIC_ASSETS = [
   '/manifest.json',
 ]
@@ -29,6 +29,11 @@ self.addEventListener('fetch', (event) => {
 
   // Only handle http/https requests
   if (!event.request.url.startsWith('http')) {
+    return
+  }
+
+  // Never cache navigation requests (HTML pages) — always fetch fresh after deploy
+  if (event.request.mode === 'navigate') {
     return
   }
 
