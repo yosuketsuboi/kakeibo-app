@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useHousehold } from '@/lib/hooks/useHousehold'
 import { useParams, useRouter } from 'next/navigation'
@@ -36,8 +36,32 @@ export default function ReceiptDetailPage() {
   const [paymentMethodId, setPaymentMethodId] = useState('')
   const [saving, setSaving] = useState(false)
   const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [imageLoading, setImageLoading] = useState(false)
   const [filterCategoryId, setFilterCategoryId] = useState<string | null | undefined>(undefined)
+  const [pendingScroll, setPendingScroll] = useState(false)
+  const [isItemsHeaderVisible, setIsItemsHeaderVisible] = useState(true)
+  const endOfItemsRef = useRef<HTMLDivElement>(null)
+  const itemsHeaderRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
+
+  useEffect(() => {
+    const el = itemsHeaderRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsItemsHeaderVisible(true)
+        } else if (entry.boundingClientRect.top < 0) {
+          // 上にスクロールアウトした場合のみフローティングボタンを表示
+          setIsItemsHeaderVisible(false)
+        }
+        // 下方向（まだスクロール前）は無視
+      },
+      { threshold: 0 }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [receipt])
 
   useEffect(() => {
     loadReceipt()
@@ -81,6 +105,7 @@ export default function ReceiptDetailPage() {
       .from('receipts')
       .createSignedUrl(r.image_path, 3600)
 
+    setImageLoading(true)
     setImageUrl(signedData?.signedUrl || urlData.publicUrl)
 
     // If still processing, poll
@@ -106,7 +131,15 @@ export default function ReceiptDetailPage() {
       ...prev,
       { id: `new-${Date.now()}`, name: '', quantity: 1, unit_price: 0, category_id: null },
     ])
+    setPendingScroll(true)
   }
+
+  useEffect(() => {
+    if (pendingScroll) {
+      endOfItemsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      setPendingScroll(false)
+    }
+  }, [pendingScroll, items])
 
   function removeItem(index: number) {
     setItems((prev) => prev.filter((_, i) => i !== index))
@@ -197,7 +230,7 @@ export default function ReceiptDetailPage() {
       )}
 
       {hasMismatch && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4">
+        <div className="sticky top-0 z-10 bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4 shadow-sm">
           <p className="text-yellow-700 text-sm font-medium">⚠ 合計金額と明細の合計が一致しません</p>
           <p className="text-yellow-600 text-xs mt-1">
             合計金額: {formatCurrency(total)} / 明細合計: {formatCurrency(itemsTotal)}（差額: {mismatchDiff > 0 ? '+' : ''}{formatCurrency(mismatchDiff)}）
@@ -207,11 +240,20 @@ export default function ReceiptDetailPage() {
 
       {/* Receipt image */}
       {imageUrl && (
-        <img
-          src={imageUrl}
-          alt="レシート画像"
-          className="w-full rounded-xl mb-4 max-h-64 object-contain bg-gray-100"
-        />
+        <div className="relative w-full mb-4">
+          {imageLoading && (
+            <div className="w-full h-40 rounded-xl bg-gray-100 flex items-center justify-center">
+              <div className="w-8 h-8 border-2 border-blue-300 border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
+          <img
+            src={imageUrl}
+            alt="レシート画像"
+            className={`w-full rounded-xl max-h-64 object-contain bg-gray-100 ${imageLoading ? 'hidden' : ''}`}
+            onLoad={() => setImageLoading(false)}
+            onError={() => setImageLoading(false)}
+          />
+        </div>
       )}
 
       {/* Receipt info */}
@@ -315,9 +357,17 @@ export default function ReceiptDetailPage() {
         )
       })()}
 
+      <button
+        onClick={handleSave}
+        disabled={saving}
+        className="w-full py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 disabled:opacity-50 mb-6"
+      >
+        {saving ? '保存中...' : '保存する'}
+      </button>
+
       {/* Items */}
       <div className="mb-6">
-        <div className="flex items-center justify-between mb-2">
+        <div ref={itemsHeaderRef} className="flex items-center justify-between mb-2">
           <h2 className="font-semibold">明細</h2>
           <button onClick={addItem} className="text-blue-600 text-sm font-medium">
             + 追加
@@ -335,7 +385,7 @@ export default function ReceiptDetailPage() {
                 return null
               }
               return (
-              <div key={item.id} className="bg-gray-50 rounded-xl p-3 space-y-2">
+              <div key={item.id} className="bg-gray-50 rounded-xl p-3 space-y-2" ref={index === items.length - 1 ? endOfItemsRef : undefined}>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -361,13 +411,23 @@ export default function ReceiptDetailPage() {
                       min={1}
                     />
                   </div>
-                  <div className="flex-1">
+                  <div className="flex flex-1 items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => updateItem(index, 'unit_price', String(-item.unit_price))}
+                      className={`px-1.5 py-1 rounded border text-sm font-medium flex-shrink-0 ${item.unit_price < 0 ? 'bg-red-50 border-red-300 text-red-500' : 'border-gray-200 text-gray-400'}`}
+                    >
+                      −
+                    </button>
                     <input
                       type="text"
                       inputMode="numeric"
-                      value={item.unit_price}
-                      onChange={(e) => updateItem(index, 'unit_price', e.target.value)}
-                      className="w-full px-2 py-1 border rounded text-sm"
+                      value={Math.abs(item.unit_price) || ''}
+                      onChange={(e) => {
+                        const abs = Number(e.target.value) || 0
+                        updateItem(index, 'unit_price', String(item.unit_price < 0 ? -abs : abs))
+                      }}
+                      className={`w-full px-2 py-1 border rounded text-sm ${item.unit_price < 0 ? 'text-red-500' : ''}`}
                       placeholder="単価"
                     />
                   </div>
@@ -384,7 +444,7 @@ export default function ReceiptDetailPage() {
                     ))}
                   </select>
                 </div>
-                <div className="text-right text-sm text-gray-600">
+                <div className={`text-right text-sm ${item.unit_price < 0 ? 'text-red-500' : 'text-gray-600'}`}>
                   小計: {formatCurrency(item.quantity * item.unit_price)}
                 </div>
               </div>
@@ -401,6 +461,16 @@ export default function ReceiptDetailPage() {
       >
         {saving ? '保存中...' : '保存する'}
       </button>
+
+      {/* Fixed add link — visible only when items header is scrolled out of view */}
+      {!isItemsHeaderVisible && (
+        <button
+          onClick={addItem}
+          className="fixed bottom-[5.5rem] right-4 z-20 text-blue-600 text-sm font-medium bg-white border border-blue-100 rounded-lg px-3 py-1.5 shadow-sm active:opacity-70"
+        >
+          + 追加
+        </button>
+      )}
     </div>
   )
 }
