@@ -23,10 +23,10 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!household) return
+    if (!household || hhLoading) return
     loadData()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [household, currentMonth])
+  }, [household, currentMonth, categories])
 
   async function loadData() {
     if (!household) return
@@ -68,15 +68,19 @@ export default function DashboardPage() {
       catMap.set(catId, (catMap.get(catId) || 0) + Number(e.amount))
     })
 
-    const catData: ExpenseByCategory[] = []
+    const nameMap = new Map<string, ExpenseByCategory>()
     catMap.forEach((amount, catId) => {
       const cat = categories.find((c) => c.id === catId)
-      catData.push({
-        name: cat?.name || 'その他',
-        color: cat?.color || '#94a3b8',
-        amount,
-      })
+      const name = cat?.name || 'その他'
+      const color = cat?.color || '#94a3b8'
+      const existing = nameMap.get(name)
+      if (existing) {
+        existing.amount += amount
+      } else {
+        nameMap.set(name, { name, color, amount })
+      }
     })
+    const catData = Array.from(nameMap.values())
     catData.sort((a, b) => b.amount - a.amount)
     setCategoryExpenses(catData)
 
@@ -187,8 +191,8 @@ export default function DashboardPage() {
 
           {/* Category list */}
           <div className="mt-2 space-y-1">
-            {categoryExpenses.map((cat) => (
-              <div key={cat.name} className="flex items-center justify-between text-sm">
+            {categoryExpenses.map((cat, index) => (
+              <div key={`${cat.name}-${index}`} className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">
                   <span
                     className="w-3 h-3 rounded-full inline-block"

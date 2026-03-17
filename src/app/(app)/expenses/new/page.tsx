@@ -6,10 +6,11 @@ import { useHousehold } from '@/lib/hooks/useHousehold'
 import { useRouter } from 'next/navigation'
 
 export default function NewExpensePage() {
-  const { household, categories } = useHousehold()
+  const { household, categories, paymentMethods } = useHousehold()
   const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
   const [categoryId, setCategoryId] = useState('')
+  const [paymentMethodId, setPaymentMethodId] = useState('')
   const [expenseDate, setExpenseDate] = useState(
     new Date().toISOString().split('T')[0]
   )
@@ -38,6 +39,7 @@ export default function NewExpensePage() {
       amount: Number(amount),
       description,
       category_id: categoryId || null,
+      payment_method_id: paymentMethodId || null,
       expense_date: expenseDate,
     })
 
@@ -91,6 +93,23 @@ export default function NewExpensePage() {
             <option value="">未分類</option>
             {categories.map((cat) => (
               <option key={cat.id} value={cat.id}>{cat.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">支払方法</label>
+          <select
+            value={paymentMethodId}
+            onChange={(e) => setPaymentMethodId(e.target.value)}
+            className="w-full px-3 py-2 border rounded-lg"
+          >
+            {paymentMethods.length === 0
+              ? <option value="">現金</option>
+              : <option value=""></option>
+            }
+            {paymentMethods.map((method) => (
+              <option key={method.id} value={method.id}>{method.name}</option>
             ))}
           </select>
         </div>

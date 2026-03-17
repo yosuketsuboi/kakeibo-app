@@ -19,6 +19,7 @@ type Receipt = {
   store_name: string | null
   total_amount: number | null
   purchased_at: string | null
+  payment_method_id: string | null
   ocr_status: string
   image_path: string
   ocr_raw: string | null
@@ -26,12 +27,13 @@ type Receipt = {
 
 export default function ReceiptDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const { household, categories } = useHousehold()
+  const { household, categories, paymentMethods } = useHousehold()
   const [receipt, setReceipt] = useState<Receipt | null>(null)
   const [items, setItems] = useState<ReceiptItem[]>([])
   const [storeName, setStoreName] = useState('')
   const [totalAmount, setTotalAmount] = useState('')
   const [purchasedAt, setPurchasedAt] = useState('')
+  const [paymentMethodId, setPaymentMethodId] = useState('')
   const [saving, setSaving] = useState(false)
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [filterCategoryId, setFilterCategoryId] = useState<string | null | undefined>(undefined)
@@ -58,6 +60,7 @@ export default function ReceiptDetailPage() {
     setStoreName(r.store_name || '')
     setTotalAmount(r.total_amount?.toString() || '')
     setPurchasedAt(r.purchased_at || '')
+    setPaymentMethodId(r.payment_method_id || '')
 
     // Load items
     const { data: itemsData } = await supabase
@@ -122,6 +125,7 @@ export default function ReceiptDetailPage() {
         store_name: storeName,
         total_amount: Number(totalAmount) || null,
         purchased_at: purchasedAt || null,
+        payment_method_id: paymentMethodId || null,
         ocr_status: 'done',
       })
       .eq('id', receipt.id)
@@ -222,17 +226,17 @@ export default function ReceiptDetailPage() {
             placeholder="店舗名"
           />
         </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-600 mb-1">合計金額</label>
+          <input
+            type="number"
+            value={totalAmount}
+            onChange={(e) => setTotalAmount(e.target.value)}
+            className="w-full px-3 py-2 border rounded-lg"
+            placeholder="0"
+          />
+        </div>
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">合計金額</label>
-            <input
-              type="number"
-              value={totalAmount}
-              onChange={(e) => setTotalAmount(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg"
-              placeholder="0"
-            />
-          </div>
           <div>
             <label className="block text-sm font-medium text-gray-600 mb-1">購入日</label>
             <input
@@ -241,6 +245,22 @@ export default function ReceiptDetailPage() {
               onChange={(e) => setPurchasedAt(e.target.value)}
               className="w-full px-3 py-2 border rounded-lg"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-1">支払方法</label>
+            <select
+              value={paymentMethodId}
+              onChange={(e) => setPaymentMethodId(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg"
+            >
+              {paymentMethods.length === 0
+                ? <option value="">現金</option>
+                : <option value=""></option>
+              }
+              {paymentMethods.map((method) => (
+                <option key={method.id} value={method.id}>{method.name}</option>
+              ))}
+            </select>
           </div>
         </div>
       </div>

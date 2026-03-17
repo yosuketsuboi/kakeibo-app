@@ -14,10 +14,13 @@ type Expense = {
   date: string
   category_name: string | null
   category_color: string | null
+  payment_method_id: string | null
+  payment_method_name: string | null
+  payment_method_color: string | null
 }
 
 export default function ExpensesPage() {
-  const { household, categories, loading: hhLoading } = useHousehold()
+  const { household, categories, paymentMethods, loading: hhLoading } = useHousehold()
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [currentMonth, setCurrentMonth] = useState(formatMonth(new Date()))
   const [filterCategory, setFilterCategory] = useState<string>('')
@@ -27,7 +30,7 @@ export default function ExpensesPage() {
     if (!household) return
     loadExpenses()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [household, currentMonth, filterCategory])
+  }, [household, currentMonth, filterCategory, paymentMethods])
 
   async function loadExpenses() {
     if (!household) return
@@ -43,30 +46,59 @@ export default function ExpensesPage() {
     const allExpenses: Expense[] = []
 
     // Get receipts
-    const { data: receipts } = await supabase
+    let receiptsQuery = supabase
       .from('receipts')
-      .select('id, store_name, total_amount, purchased_at')
+      .select('id, store_name, total_amount, purchased_at, payment_method_id')
       .eq('household_id', household.id)
       .gte('purchased_at', startDate)
       .lt('purchased_at', endDate)
       .order('purchased_at', { ascending: false })
 
+    // receipt_id -> filtered amount map (only set when filterCategory is active)
+    let filteredReceiptAmounts: Map<string, number> | null = null
+
+    if (filterCategory) {
+      const { data: matchedItems } = await supabase
+        .from('receipt_items')
+        .select('receipt_id, unit_price, quantity')
+        .eq('category_id', filterCategory)
+      if (!matchedItems || matchedItems.length === 0) {
+        receiptsQuery = receiptsQuery.in('id', [''])
+      } else {
+        filteredReceiptAmounts = new Map()
+        for (const item of matchedItems) {
+          const prev = filteredReceiptAmounts.get(item.receipt_id) ?? 0
+          filteredReceiptAmounts.set(item.receipt_id, prev + item.unit_price * item.quantity)
+        }
+        receiptsQuery = receiptsQuery.in('id', [...filteredReceiptAmounts.keys()])
+      }
+    }
+
+    const { data: receipts } = await receiptsQuery
+
     receipts?.forEach((r) => {
+      const method = paymentMethods.find((m) => m.id === r.payment_method_id)
+      const amount = filteredReceiptAmounts
+        ? (filteredReceiptAmounts.get(r.id) ?? 0)
+        : Number(r.total_amount) || 0
       allExpenses.push({
         id: r.id,
         type: 'receipt',
         description: r.store_name || 'レシート',
-        amount: Number(r.total_amount) || 0,
+        amount,
         date: r.purchased_at || '',
         category_name: null,
         category_color: null,
+        payment_method_id: r.payment_method_id,
+        payment_method_name: method?.name || null,
+        payment_method_color: method?.color || null,
       })
     })
 
     // Get manual expenses
     let manualQuery = supabase
       .from('manual_expenses')
-      .select('id, amount, description, expense_date, category_id')
+      .select('id, amount, description, expense_date, category_id, payment_method_id')
       .eq('household_id', household.id)
       .gte('expense_date', startDate)
       .lt('expense_date', endDate)
@@ -79,6 +111,7 @@ export default function ExpensesPage() {
 
     manualExpenses?.forEach((e) => {
       const cat = categories.find((c) => c.id === e.category_id)
+      const method = paymentMethods.find((m) => m.id === e.payment_method_id)
       allExpenses.push({
         id: e.id,
         type: 'manual',
@@ -87,6 +120,9 @@ export default function ExpensesPage() {
         date: e.expense_date,
         category_name: cat?.name || null,
         category_color: cat?.color || null,
+        payment_method_id: e.payment_method_id,
+        payment_method_name: method?.name || null,
+        payment_method_color: method?.color || null,
       })
     })
 
@@ -166,7 +202,7 @@ export default function ExpensesPage() {
               href={expense.type === 'receipt' ? `/receipts/${expense.id}` : `/expenses/${expense.id}`}
               className="block bg-white rounded-xl p-4 shadow-sm border"
             >
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center mb-2">
                 <div className="flex items-center gap-2">
                   {expense.category_color && (
                     <span
@@ -184,6 +220,15 @@ export default function ExpensesPage() {
                 </div>
                 <p className="font-bold">{formatCurrency(expense.amount)}</p>
               </div>
+              {expense.payment_method_name && (
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className="w-2.5 h-2.5 rounded-full"
+                    style={{ backgroundColor: expense.payment_method_color || '#94a3b8' }}
+                  />
+                  <span className="text-xs text-gray-600">{expense.payment_method_name}</span>
+                </div>
+              )}
             </Link>
           ))}
         </div>

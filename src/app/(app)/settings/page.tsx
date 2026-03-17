@@ -186,6 +186,12 @@ export default function SettingsPage() {
         >
           カテゴリ管理 →
         </Link>
+        <Link
+          href="/payment-methods"
+          className="block bg-white rounded-xl p-4 shadow-sm border text-sm font-medium"
+        >
+          支払方法管理 →
+        </Link>
       </section>
 
       {/* Logout */}

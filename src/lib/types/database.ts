@@ -86,6 +86,41 @@ export type Database = {
           }
         ]
       }
+      payment_methods: {
+        Row: {
+          id: string
+          household_id: string
+          name: string
+          color: string
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          household_id: string
+          name: string
+          color: string
+          sort_order?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          household_id?: string
+          name?: string
+          color?: string
+          sort_order?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_methods_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       receipts: {
         Row: {
           id: string
@@ -95,6 +130,7 @@ export type Database = {
           store_name: string | null
           total_amount: number | null
           purchased_at: string | null
+          payment_method_id: string | null
           ocr_status: 'pending' | 'processing' | 'done' | 'error'
           ocr_raw: string | null
           created_at: string
@@ -107,6 +143,7 @@ export type Database = {
           store_name?: string | null
           total_amount?: number | null
           purchased_at?: string | null
+          payment_method_id?: string | null
           ocr_status?: 'pending' | 'processing' | 'done' | 'error'
           ocr_raw?: string | null
           created_at?: string
@@ -119,6 +156,7 @@ export type Database = {
           store_name?: string | null
           total_amount?: number | null
           purchased_at?: string | null
+          payment_method_id?: string | null
           ocr_status?: 'pending' | 'processing' | 'done' | 'error'
           ocr_raw?: string | null
           created_at?: string
@@ -129,6 +167,13 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipts_payment_method_id_fkey"
+            columns: ["payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "payment_methods"
             referencedColumns: ["id"]
           }
         ]
@@ -184,6 +229,7 @@ export type Database = {
           household_id: string
           user_id: string
           category_id: string | null
+          payment_method_id: string | null
           amount: number
           description: string
           expense_date: string
@@ -194,6 +240,7 @@ export type Database = {
           household_id: string
           user_id: string
           category_id?: string | null
+          payment_method_id?: string | null
           amount: number
           description: string
           expense_date: string
@@ -204,6 +251,7 @@ export type Database = {
           household_id?: string
           user_id?: string
           category_id?: string | null
+          payment_method_id?: string | null
           amount?: number
           description?: string
           expense_date?: string
@@ -222,6 +270,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_expenses_payment_method_id_fkey"
+            columns: ["payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "payment_methods"
             referencedColumns: ["id"]
           }
         ]

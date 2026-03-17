@@ -7,10 +7,11 @@ import { useParams, useRouter } from 'next/navigation'
 
 export default function EditExpensePage() {
   const { id } = useParams<{ id: string }>()
-  const { household, categories } = useHousehold()
+  const { household, categories, paymentMethods } = useHousehold()
   const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
   const [categoryId, setCategoryId] = useState('')
+  const [paymentMethodId, setPaymentMethodId] = useState('')
   const [expenseDate, setExpenseDate] = useState('')
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -34,6 +35,7 @@ export default function EditExpensePage() {
       setAmount(data.amount.toString())
       setDescription(data.description)
       setCategoryId(data.category_id || '')
+      setPaymentMethodId(data.payment_method_id || '')
       setExpenseDate(data.expense_date)
     }
     setLoading(false)
@@ -50,6 +52,7 @@ export default function EditExpensePage() {
         amount: Number(amount),
         description,
         category_id: categoryId || null,
+        payment_method_id: paymentMethodId || null,
         expense_date: expenseDate,
       })
       .eq('id', id)
@@ -112,6 +115,23 @@ export default function EditExpensePage() {
             <option value="">未分類</option>
             {categories.map((cat) => (
               <option key={cat.id} value={cat.id}>{cat.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">支払方法</label>
+          <select
+            value={paymentMethodId}
+            onChange={(e) => setPaymentMethodId(e.target.value)}
+            className="w-full px-3 py-2 border rounded-lg"
+          >
+            {paymentMethods.length === 0
+              ? <option value="">現金</option>
+              : <option value=""></option>
+            }
+            {paymentMethods.map((method) => (
+              <option key={method.id} value={method.id}>{method.name}</option>
             ))}
           </select>
         </div>
