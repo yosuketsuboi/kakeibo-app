@@ -15,10 +15,19 @@ type ExpenseByCategory = {
   amount: number
 }
 
+type PaymentMethodExpense = {
+  name: string
+  color: string
+  amount: number
+  categories: ExpenseByCategory[]
+}
+
 export default function DashboardPage() {
-  const { household, categories, loading: hhLoading } = useHousehold()
+  const { household, categories, paymentMethods, loading: hhLoading } = useHousehold()
   const [currentMonth, setCurrentMonth] = useState(formatMonth(new Date()))
   const [categoryExpenses, setCategoryExpenses] = useState<ExpenseByCategory[]>([])
+  const [paymentMethodExpenses, setPaymentMethodExpenses] = useState<PaymentMethodExpense[]>([])
+  const [expandedPm, setExpandedPm] = useState<string | null>(null)
   const [monthlyTrend, setMonthlyTrend] = useState<{ month: string; amount: number }[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -26,7 +35,7 @@ export default function DashboardPage() {
     if (!household || hhLoading) return
     loadData()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [household, currentMonth, categories])
+  }, [household, currentMonth, categories, paymentMethods])
 
   async function loadData() {
     if (!household) return
@@ -42,7 +51,7 @@ export default function DashboardPage() {
     // Get receipt items with categories for this month
     const { data: receipts } = await supabase
       .from('receipts')
-      .select('id, total_amount, purchased_at, receipt_items(unit_price, quantity, category_id)')
+      .select('id, total_amount, purchased_at, payment_method_id, receipt_items(unit_price, quantity, category_id)')
       .eq('household_id', household.id)
       .gte('purchased_at', startDate)
       .lt('purchased_at', endDate)
@@ -50,7 +59,7 @@ export default function DashboardPage() {
     // Get manual expenses for this month
     const { data: manualExpenses } = await supabase
       .from('manual_expenses')
-      .select('amount, category_id')
+      .select('amount, category_id, payment_method_id')
       .eq('household_id', household.id)
       .gte('expense_date', startDate)
       .lt('expense_date', endDate)
@@ -83,6 +92,43 @@ export default function DashboardPage() {
     const catData = Array.from(nameMap.values())
     catData.sort((a, b) => b.amount - a.amount)
     setCategoryExpenses(catData)
+
+    // Aggregate by payment method (total + per-category breakdown)
+    const pmAmountMap = new Map<string, number>()
+    const pmCatMap = new Map<string, Map<string, number>>()
+
+    receipts?.forEach((r) => {
+      const pmId = r.payment_method_id || 'unassigned'
+      pmAmountMap.set(pmId, (pmAmountMap.get(pmId) || 0) + Number(r.total_amount || 0))
+      if (!pmCatMap.has(pmId)) pmCatMap.set(pmId, new Map())
+      const cMap = pmCatMap.get(pmId)!
+      ;(r.receipt_items as { unit_price: number; quantity: number; category_id: string | null }[])?.forEach((item) => {
+        const catId = item.category_id || 'uncategorized'
+        cMap.set(catId, (cMap.get(catId) || 0) + item.unit_price * item.quantity)
+      })
+    })
+    manualExpenses?.forEach((e) => {
+      const pmId = e.payment_method_id || 'unassigned'
+      pmAmountMap.set(pmId, (pmAmountMap.get(pmId) || 0) + Number(e.amount))
+      if (!pmCatMap.has(pmId)) pmCatMap.set(pmId, new Map())
+      const cMap = pmCatMap.get(pmId)!
+      const catId = e.category_id || 'uncategorized'
+      cMap.set(catId, (cMap.get(catId) || 0) + Number(e.amount))
+    })
+
+    const pmData: PaymentMethodExpense[] = []
+    pmAmountMap.forEach((amount, pmId) => {
+      const pm = paymentMethods.find((p) => p.id === pmId)
+      const pmCats: ExpenseByCategory[] = []
+      pmCatMap.get(pmId)?.forEach((catAmount, catId) => {
+        const cat = categories.find((c) => c.id === catId)
+        pmCats.push({ name: cat?.name || 'その他', color: cat?.color || '#94a3b8', amount: catAmount })
+      })
+      pmCats.sort((a, b) => b.amount - a.amount)
+      pmData.push({ name: pm?.name || '未設定', color: pm?.color || '#94a3b8', amount, categories: pmCats })
+    })
+    pmData.sort((a, b) => b.amount - a.amount)
+    setPaymentMethodExpenses(pmData)
 
     // Monthly trend (last 6 months)
     const trend: { month: string; amount: number }[] = []
@@ -158,10 +204,74 @@ export default function DashboardPage() {
       {/* Total */}
       <div className="bg-blue-50 rounded-2xl p-4 mb-6 text-center">
         <p className="text-sm text-gray-600">合計支出</p>
-        <p className="text-3xl font-bold text-blue-700">
-          {loading ? '...' : formatCurrency(totalAmount)}
-        </p>
+        {loading ? (
+          <div className="flex justify-center items-center gap-1 h-9 mt-1">
+            {[0, 1, 2].map((i) => (
+              <span
+                key={i}
+                className="w-2 h-2 rounded-full bg-blue-400 animate-bounce"
+                style={{ animationDelay: `${i * 0.15}s` }}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="text-3xl font-bold text-blue-700">{formatCurrency(totalAmount)}</p>
+        )}
       </div>
+
+      {/* Payment method breakdown */}
+      {!loading && paymentMethodExpenses.length > 0 && (
+        <div className="bg-white rounded-2xl p-4 mb-6 shadow-sm border">
+          <h2 className="text-sm font-semibold mb-2 text-gray-700">支払方法別内訳</h2>
+          <div className="space-y-1">
+            {paymentMethodExpenses.map((pm, index) => {
+              const isExpanded = expandedPm === pm.name
+              return (
+                <div key={`${pm.name}-${index}`}>
+                  <button
+                    className="w-full flex items-center justify-between text-sm py-1 active:opacity-60"
+                    onClick={() => setExpandedPm(isExpanded ? null : pm.name)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="w-3 h-3 rounded-full inline-block"
+                        style={{ backgroundColor: pm.color }}
+                      />
+                      <span>{pm.name}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="font-medium">{formatCurrency(pm.amount)}</span>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={2}
+                        stroke="currentColor"
+                        className={`w-3 h-3 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                      </svg>
+                    </div>
+                  </button>
+                  {isExpanded && pm.categories.length > 0 && (
+                    <div className="mt-1 mb-1 ml-5 space-y-1 border-l-2 pl-3" style={{ borderColor: pm.color }}>
+                      {pm.categories.map((cat, ci) => (
+                        <div key={ci} className="flex items-center justify-between text-xs text-gray-600">
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: cat.color }} />
+                            <span>{cat.name}</span>
+                          </div>
+                          <span>{formatCurrency(cat.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Pie chart */}
       {!loading && categoryExpenses.length > 0 && (
